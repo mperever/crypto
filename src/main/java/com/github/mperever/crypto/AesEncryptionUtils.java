@@ -1,5 +1,7 @@
 package com.github.mperever.crypto;
 
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.security.InvalidAlgorithmParameterException;
@@ -33,6 +35,39 @@ public class AesEncryptionUtils
     private static final int HMAC_KEY_SIZE = 32; // in bytes (256 bits)
     private static final String HMAC_ALGORITHM = "HmacSHA256";
     private static final Charset CHARSET_ENCODING = StandardCharsets.UTF_8;
+
+    static
+    {
+        try
+        {
+            final int maxCipherKeySize = Cipher.getMaxAllowedKeyLength( AES_KEY_ALGORITHM );
+
+            if ( maxCipherKeySize < AES_KEY_SIZE * 8 )
+            {
+                setUnlimitedCipherStrength();
+            }
+        } catch ( Exception ex )
+        {
+            ex.printStackTrace();
+        }
+    }
+
+    private static void setUnlimitedCipherStrength() throws Exception
+    {
+        final int maxAesStrength = javax.crypto.Cipher.getMaxAllowedKeyLength("AES");
+
+        if ( maxAesStrength < 256 )
+        {
+            Field field = Class.forName("javax.crypto.JceSecurity").getDeclaredField("isRestricted");
+            field.setAccessible(true);
+
+            Field modifiersField = Field.class.getDeclaredField("modifiers");
+            modifiersField.setAccessible(true);
+            modifiersField.setInt(field, field.getModifiers() & ~Modifier.FINAL);
+
+            field.set(null, false);
+        }
+    }
 
     private AesEncryptionUtils()
     {
